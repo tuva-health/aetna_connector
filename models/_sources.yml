@@ -1,8 +1,9 @@
 version: 2
 
-#sources:
-#  - name:
-#    database:
-#    schema:
-#    tables:
-#      - name:
+sources:
+ - name: aetna
+   database: dev_krish
+   schema: raw_data
+   tables:
+     - name: aetna_eligibility_raw
+     - name: aetna_medical_claims_raw

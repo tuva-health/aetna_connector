@@ -1,4 +1,4 @@
-name: connector_template
+name: aetna_connector
 version: '1.0.0'
 
 # This setting configures which "profile" dbt uses for this project.
@@ -33,7 +33,7 @@ clean-targets:         # directories to be removed by `dbt clean`
   - "dbt_packages"
 
 models:
-  connector_template:
+  aetna_connector:
     staging:
       +materialized: table
       +schema: _input_layer
