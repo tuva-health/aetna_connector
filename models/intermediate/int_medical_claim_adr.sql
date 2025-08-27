@@ -177,7 +177,19 @@ select
     , icd_10_ind
     , xchng_id
     , filler_15
+    , row_number() over (
+        partition by
+            src_clm_id
+            , src_claim_line_id
+        order by date_processed desc
+    ) as row_num
 from {{ ref('stg_medical_claim') }}
+)
+
+, source_data_deduped as (
+    select *
+    from source_data
+    where row_num = 1
 )
 
 , mapped_data as (
@@ -464,7 +476,7 @@ select
     , cast(null as {{ dbt.type_string() }}) as file_date
     , cast(null as datetime) as ingest_datetime
 from mapped_data as md
-left outer join claim_line_totals as clt
+inner join claim_line_totals as clt
 on md.claim_id = clt.claim_id
 and md.claim_line_number = clt.claim_line_number
 left outer join claim_types as ct
