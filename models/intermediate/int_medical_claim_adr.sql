@@ -311,8 +311,9 @@ from {{ ref('stg_medical_claim') }}
         Records with a "D" in claim line status code are voided and reprocessed
         under a new claim ID. Here we identify records that should be voided.
         */
-        , max(claim_line_status_code = 'D') over (partition by claim_id) as has_denied_status
+        , max(claim_line_status_code = 'D') as has_denied_status
     from mapped_data
+    group by claim_id
 )
 
 , claims_to_exclude as (
