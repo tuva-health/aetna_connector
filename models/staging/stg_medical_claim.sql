@@ -176,4 +176,5 @@ select
     , cast(icd_10_ind as {{ dbt.type_string() }}) as icd_10_ind
     , cast(xchng_id as {{ dbt.type_string() }}) as xchng_id
     , cast(filler_15 as {{ dbt.type_string() }}) as filler_15
+    , cast(null as date) as file_date
 from {{ source('aetna', 'aetna_medical_claims_raw') }}

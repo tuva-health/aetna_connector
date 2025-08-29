@@ -177,11 +177,16 @@ select
     , icd_10_ind
     , xchng_id
     , filler_15
+    /*
+    First, deduplicate on claim_line_id to make sure we're only
+    keeping the latest information for a given claim line. If
+    there is no file_date, we coalesce with received date.
+    */
     , row_number() over (
         partition by
             src_clm_id
-            , src_claim_line_id
-        order by date_processed desc
+            , claim_line_id
+        order by coalesce(file_date, received_dt) desc
     ) as row_num
 from {{ ref('stg_medical_claim') }}
 )
@@ -262,6 +267,9 @@ from {{ ref('stg_medical_claim') }}
         , 'Aetna' as plan
         , 'Aetna' as data_source
         , 'Aetna' as payer
+        , received_dt
+        , clm_ln_type_cd
+        , prcdr_type_cd
     from source_data
 )
 
@@ -300,6 +308,7 @@ from {{ ref('stg_medical_claim') }}
         and revenue_center_code is null
         and place_of_service_code is not null
     ) as is_professional
+    , max(prcdr_type_cd = 'F') as is_dental
   from mapped_data
   group by claim_id
 )
@@ -326,9 +335,10 @@ from {{ ref('stg_medical_claim') }}
 select
       cast(md.claim_id as {{ dbt.type_string() }}) as claim_id
     , cast(md.claim_line_number as integer) as claim_line_number
-    , cast(case when is_institutional then 'institutional'
-                when is_professional and not is_institutional then 'professional'
-                when not is_professional and not is_institutional then 'undetermined'
+    , cast(case when is_dental then 'dental'
+                when is_institutional and not is_dental then 'institutional'
+                when is_professional and not is_institutional and not is_dental then 'professional'
+                when not is_professional and not is_institutional and not is_dental then 'undetermined'
             end as {{ dbt.type_string() }}) as claim_type
     , cast(person_id as {{ dbt.type_string() }}) as person_id
     , cast(person_id as {{ dbt.type_string() }}) as member_id
@@ -476,6 +486,7 @@ select
     , cast(null as {{ dbt.type_string() }}) as file_name
     , cast(null as {{ dbt.type_string() }}) as file_date
     , cast(null as datetime) as ingest_datetime
+    , cast(received_dt as date) as received_date
 from mapped_data as md
 inner join claim_line_totals as clt
 on md.claim_id = clt.claim_id
@@ -488,6 +499,8 @@ left outer join claims_to_exclude as cte
 on md.claim_id = cte.claim_id
 where not r.has_denied_status
 and cte.claim_id is null
+-- Keep originals post-ADR
+and clm_ln_type_cd = 'O'
 )
 
 select * from final

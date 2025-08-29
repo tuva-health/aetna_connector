@@ -1,9 +1,13 @@
 with base as (
     select
         *
+        /*
+        Here we add logic to deduplicate based on claim line number post-ADR
+        and keep the latest information based on the received date.
+        */
         , row_number() over (
             partition by claim_id, claim_line_number
-            order by paid_date desc
+            order by received_date desc
         ) as row_num
     from {{ ref('int_medical_claim_adr') }}
 )
@@ -158,3 +162,4 @@ select
     , file_date
     , ingest_datetime
 from base
+where row_num = 1
