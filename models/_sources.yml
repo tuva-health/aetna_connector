@@ -2,7 +2,6 @@ version: 2
 
 sources:
  - name: aetna
-   database: dev_krish
    schema: raw_data
    tables:
      - name: aetna_eligibility_raw
