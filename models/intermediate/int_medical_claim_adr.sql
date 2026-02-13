@@ -61,7 +61,7 @@ select
     , adjn_dt
     , srv_start_dt
     , srv_stop_dt
-    , paid_date
+    , date_processed
     -- , filler_2
     -- , filler_3
     -- , filler_4
@@ -208,7 +208,7 @@ from {{ ref('stg_medical_claim') }}
         , srv_stop_dt as claim_line_end_date
         , srv_start_dt as claim_start_date
         , srv_stop_dt as claim_end_date
-        , paid_date
+        , date_processed as paid_date
         , src_admit_dt as admission_date
         , src_discharge_dt as discharge_date
         , hcfa_admit_src_cd as admit_source_code
@@ -505,5 +505,3 @@ and clm_ln_type_cd = 'O'
 )
 
 select * from final
-
-    
