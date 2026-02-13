@@ -337,9 +337,9 @@ select
       cast(md.claim_id as {{ dbt.type_string() }}) as claim_id
     , cast(md.claim_line_number as integer) as claim_line_number
     , cast(case when is_dental then 'dental'
-                when is_institutional and not is_dental then 'institutional'
-                when is_professional and not is_institutional and not is_dental then 'professional'
-                when not is_professional and not is_institutional and not is_dental then 'undetermined'
+                when is_institutional then 'institutional'
+                when is_professional then 'professional'
+                else 'undetermined'
             end as {{ dbt.type_string() }}) as claim_type
     , cast(person_id as {{ dbt.type_string() }}) as person_id
     , cast(person_id as {{ dbt.type_string() }}) as member_id
