@@ -3,7 +3,7 @@ select
       ps_unique_id
     , customer_nbr
     , group_nbr
-    , filler_1
+    -- , filler_1
     , subgroup_nbr
     , account_nbr
     , file_id
@@ -17,8 +17,8 @@ select
     , benefit_tier
     , fund_ctg_cd
     , src_subscriber_id
-    , subscriber_last_nm
-    , subscriber_first_nm
+    -- , subscriber_last_nm
+    -- , subscriber_first_nm
     , subscriber_gender_cd
     , subscriber_brth_dt
     , subs_zip_cd
@@ -26,14 +26,14 @@ select
     , coverage_type_cd
     , subscriber_ssn_nbr
     , member_id
-    , member_number
+    -- , member_number
     , member_last_nm
     , member_first_nm
     , mbr_gender_cd
     , mbr_rtp_type_cd
     , member_birth_dt
     , src_clm_id
-    , acas_gen_seq_nbr
+    -- , acas_gen_seq_nbr
     , prev_clm_seg_id
     , derived_tcn_nbr
     , src_claim_line_id
@@ -62,17 +62,17 @@ select
     , srv_start_dt
     , srv_stop_dt
     , date_processed
-    , filler_2
-    , filler_3
-    , filler_4
+    -- , filler_2
+    -- , filler_3
+    -- , filler_4
     , mdc_cd
     , drg_cd
     , prcdr_cd
     , prcdr_modifier_cd
     , prcdr_type_cd
-    , filler_5
-    , filler_6
-    , filler_7
+    -- , filler_5
+    -- , filler_6
+    -- , filler_7
     , type_srv_cd
     , benefit_cd
     , tooth_1_nbr
@@ -92,7 +92,7 @@ select
     , clm_ln_msg_cd_3
     , covered_amt
     , allowed_amt
-    , filler_8
+    -- , filler_8
     , srv_copay_amt
     , src_srv_copay_amt
     , deductible_amt
@@ -123,13 +123,13 @@ select
     , aex_prvdr_spctg_cd
     , prod_distnctn_cd
     , billed_eligible_amt
-    , srv_provider_class_cd
+    -- , srv_provider_class_cd
     , poa_cd_1
     , poa_cd_2
     , poa_cd_3
-    , filler_9
-    , filler_10
-    , filler_11
+    -- , filler_9
+    -- , filler_10
+    -- , filler_11
     , pricing_mthd_cd
     , type_class_cd
     , specialty_ctg_cd
@@ -137,7 +137,7 @@ select
     , ttl_ded_met_ind
     , ttl_interest_amt
     , ttl_surcharge_amt
-    , filler_12
+    -- , filler_12
     , hcfa_plc_srv_cd
     , hcfa_admit_src_cd
     , hcfa_admit_type_cd
@@ -172,11 +172,11 @@ select
     , ahf_mbr_coins_amt
     , ahf_mbr_copay_amt
     , ahf_mbr_ded_amt
-    , filler_13
-    , filler_14
+    -- , filler_13
+    -- , filler_14
     , icd_10_ind
-    , xchng_id
-    , filler_15
+    -- , xchng_id
+    -- , filler_15
     /*
     First, deduplicate on claim_line_id to make sure we're only
     keeping the latest information for a given claim line. If
@@ -212,19 +212,20 @@ from {{ ref('stg_medical_claim') }}
         , src_admit_dt as admission_date
         , src_discharge_dt as discharge_date
         , hcfa_admit_src_cd as admit_source_code
-        , hcfa_admit_type_cd as admit_type_code
-        , dschrg_status_cd as discharge_disposition_code
-        , revenue_cd as revenue_center_code
+        , nullif(hcfa_admit_type_cd,'9') as admit_type_code
+        , lpad(dschrg_status_cd, 2, '0') as discharge_disposition_code
+        , lpad(nullif(revenue_cd,'000'), 4, '0') as revenue_center_code
         , unit_cnt as service_unit_quantity
-        , hcfa_bill_type_cd as bill_type_code
-        , hcfa_plc_srv_cd as place_of_service_code
+        -- U is unknown
+        , nullif(hcfa_bill_type_cd, 'U') as bill_type_code
+        , lpad(hcfa_plc_srv_cd, 2, '0') as place_of_service_code
         , null as drg_code_type
         , drg_cd as drg_code
-        , prcdr_cd as hcpcs_code
+        , lpad(prcdr_cd, 5, '0') as hcpcs_code
         , prcdr_modifier_cd as hcpcs_modifier_1
         , prcdr_modifier_cd_2 as hcpcs_modifier_2
         , prcdr_modifier_cd_3 as hcpcs_modifier_3
-        , srv_prvdr_npi as rendering_npi
+        , lpad(case when srv_prvdr_npi != '0000000000' then srv_prvdr_npi end, 10, '0') as rendering_npi
         , srv_prvdr_tax_id_nbr as rendering_tin
         , paid_amt as paid_amount
         , allowed_amt as allowed_amount
@@ -328,7 +329,7 @@ from {{ ref('stg_medical_claim') }}
 , claims_to_exclude as (
     select distinct claim_id
     from claim_line_totals
-    where (sum_allowed_amount < 0 or sum_paid_amount < 0 or sum_service_unit_quantity < 0)
+    where (sum_allowed_amount < 0 or sum_paid_amount < 0)
 )
 
 , final as (
@@ -336,9 +337,9 @@ select
       cast(md.claim_id as {{ dbt.type_string() }}) as claim_id
     , cast(md.claim_line_number as integer) as claim_line_number
     , cast(case when is_dental then 'dental'
-                when is_institutional and not is_dental then 'institutional'
-                when is_professional and not is_institutional and not is_dental then 'professional'
-                when not is_professional and not is_institutional and not is_dental then 'undetermined'
+                when is_institutional then 'institutional'
+                when is_professional then 'professional'
+                else 'undetermined'
             end as {{ dbt.type_string() }}) as claim_type
     , cast(person_id as {{ dbt.type_string() }}) as person_id
     , cast(person_id as {{ dbt.type_string() }}) as member_id
@@ -360,9 +361,9 @@ select
     , cast(revenue_center_code as {{ dbt.type_string() }}) as revenue_center_code
     , cast(service_unit_quantity as integer) as service_unit_quantity
     , cast(hcpcs_code as {{ dbt.type_string() }}) as hcpcs_code
-    , cast(hcpcs_modifier_1 as {{ dbt.type_string() }}) as hcpcs_modifier_1
-    , cast(hcpcs_modifier_2 as {{ dbt.type_string() }}) as hcpcs_modifier_2
-    , cast(hcpcs_modifier_3 as {{ dbt.type_string() }}) as hcpcs_modifier_3
+    , cast(nullif(hcpcs_modifier_1,'00') as {{ dbt.type_string() }}) as hcpcs_modifier_1
+    , cast(nullif(hcpcs_modifier_2,'00') as {{ dbt.type_string() }}) as hcpcs_modifier_2
+    , cast(nullif(hcpcs_modifier_3,'00') as {{ dbt.type_string() }}) as hcpcs_modifier_3
     , cast(null as {{ dbt.type_string() }}) as hcpcs_modifier_4
     , cast(null as {{ dbt.type_string() }}) as hcpcs_modifier_5
     , cast(rendering_npi as {{ dbt.type_string() }}) as rendering_npi
