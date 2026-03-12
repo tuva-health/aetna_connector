@@ -282,14 +282,14 @@ From the Aetna documentation:
 The remaining expense lines (usually ancillary records) will show a Status of Claim value of 'D' but they were not technically denied. The 'D' in such cases is only used to denote that none of the paid dollars for the claim will be found on the expense-lines carrying the 'D" value for Status of Claim.
 If the purpose of the reporting is to review all records associated with a facility claim, then records with a Status of Claim value of 'D' should not be excluded.
 */
-denied_inpatient_facility_claims as (
+, denied_inpatient_facility_claims as (
     select distinct
         claim_id,
         claim_line_number
-    from updated_claim_id
+    from mapped_data
     -- Definition taken from the service_category__stg_inpatient_institutional model in Tuva
-    where clm_ln_status_cd = 'D'
-        and (substring(cast(hcfa_bill_type_cd as VARCHAR), 1, 2) in (
+    where claim_line_status_code = 'D'
+        and (substring(cast(bill_type_code as {{ dbt.type_string() }}), 1, 2) in (
       '11'  -- Hospital Inpatient (Part A)
     , '12'  -- Hospital Inpatient (Part B)
     , '21'  -- Skilled Nursing Facility (SNF) Inpatient (Part A)
@@ -318,7 +318,7 @@ denied_inpatient_facility_claims as (
     , '68'  -- Intermediate Care Swing Beds    
             )
         )
-),
+)
 
 , claim_line_totals as (
     select
@@ -370,11 +370,11 @@ denied_inpatient_facility_claims as (
         Records with a "D" in claim line status code are voided and reprocessed
         under a new claim ID. Here we identify records that should be voided.
         */
-    from updated_claim_id as main
+    from mapped_data as main
     left join denied_inpatient_facility_claims as ip
         on main.claim_id = ip.claim_id
         and main.claim_line_number = ip.claim_line_number
-    where clm_ln_status_cd = 'D'
+    where claim_line_status_code = 'D'
         -- Exclude inpatient facility claims since they aren't actually denied (see note above the denied_inpatient_facility_claims CTE)
         and ip.claim_id is null
 )
@@ -539,7 +539,7 @@ select
     , cast(data_source as {{ dbt.type_string() }}) as data_source
     , cast(null as {{ dbt.type_string() }}) as file_name
     , cast(null as {{ dbt.type_string() }}) as file_date
-    , cast(null as datetime) as ingest_datetime
+    , null as ingest_datetime
     , cast(received_dt as date) as received_date
 from mapped_data as md
 
