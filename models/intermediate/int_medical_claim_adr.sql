@@ -539,7 +539,7 @@ select
     , cast(data_source as {{ dbt.type_string() }}) as data_source
     , cast(null as {{ dbt.type_string() }}) as file_name
     , cast(null as {{ dbt.type_string() }}) as file_date
-    , cast(null as datetime) as ingest_datetime
+    , null as ingest_datetime
     , cast(received_dt as date) as received_date
 from mapped_data as md
 
