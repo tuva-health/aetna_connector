@@ -288,7 +288,7 @@ If the purpose of the reporting is to review all records associated with a facil
         claim_line_number
     from mapped_data
     -- Definition taken from the service_category__stg_inpatient_institutional model in Tuva
-    where clm_ln_status_cd = 'D'
+    where claim_line_status_code = 'D'
         and (substring(cast(hcfa_bill_type_cd as {{ dbt.type_string() }}), 1, 2) in (
       '11'  -- Hospital Inpatient (Part A)
     , '12'  -- Hospital Inpatient (Part B)
@@ -374,7 +374,7 @@ If the purpose of the reporting is to review all records associated with a facil
     left join denied_inpatient_facility_claims as ip
         on main.claim_id = ip.claim_id
         and main.claim_line_number = ip.claim_line_number
-    where clm_ln_status_cd = 'D'
+    where claim_line_status_code = 'D'
         -- Exclude inpatient facility claims since they aren't actually denied (see note above the denied_inpatient_facility_claims CTE)
         and ip.claim_id is null
 )
