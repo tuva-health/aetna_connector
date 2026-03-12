@@ -322,8 +322,8 @@ If the purpose of the reporting is to review all records associated with a facil
 
 , claim_line_totals as (
     select
-        claim_id
-        , claim_line_number
+        main.claim_id
+        , main.claim_line_number
         , sum(case when ip.claim_id is not null then 0 else main.paid_amount end) as sum_paid_amount
         , sum(case when ip.claim_id is not null then 0 else main.allowed_amount end) as sum_allowed_amount
         , sum(case when ip.claim_id is not null then 0 else main.coinsurance_amount end) as sum_coinsurance_amount
@@ -335,7 +335,7 @@ If the purpose of the reporting is to review all records associated with a facil
     left join denied_inpatient_facility_claims as ip
         on main.claim_id = ip.claim_id
         and main.claim_line_number = ip.claim_line_number    
-    group by claim_id, claim_line_number
+    group by main.claim_id, main.claim_line_number
 )
 
 , claim_types as (
