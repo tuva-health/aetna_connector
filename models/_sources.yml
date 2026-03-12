@@ -6,3 +6,4 @@ sources:
    tables:
      - name: aetna_eligibility_raw
      - name: aetna_medical_claims_raw
+     - name: aetna_pharmacy_claims_raw

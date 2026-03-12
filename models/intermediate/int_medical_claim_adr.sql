@@ -274,18 +274,67 @@ from {{ ref('stg_medical_claim') }}
     from source_data
 )
 
+
+/*
+From the Aetna documentation:
+
+* Note: For inpatient facility claims processed on ACAS (Source System Platform = '27'), the financials for multiple expense lines may be "rolled up" to the first room and board and/or ancillary expense line (i.e., all of the covered and paid dollars for that claim will be shown on the first expense line). 
+The remaining expense lines (usually ancillary records) will show a Status of Claim value of 'D' but they were not technically denied. The 'D' in such cases is only used to denote that none of the paid dollars for the claim will be found on the expense-lines carrying the 'D" value for Status of Claim.
+If the purpose of the reporting is to review all records associated with a facility claim, then records with a Status of Claim value of 'D' should not be excluded.
+*/
+denied_inpatient_facility_claims as (
+    select distinct
+        claim_id,
+        claim_line_number
+    from updated_claim_id
+    -- Definition taken from the service_category__stg_inpatient_institutional model in Tuva
+    where clm_ln_status_cd = 'D'
+        and (substring(cast(hcfa_bill_type_cd as VARCHAR), 1, 2) in (
+      '11'  -- Hospital Inpatient (Part A)
+    , '12'  -- Hospital Inpatient (Part B)
+    , '21'  -- Skilled Nursing Facility (SNF) Inpatient (Part A)
+    , '82'  -- Hospital-based Hospice (Inpatient)
+    , '15'  -- Hospital Intermediate Care - Level I
+    , '16'  -- Hospital Intermediate Care - Level II
+    , '17'  -- Hospital Subacute Inpatient
+    , '18'  -- Hospital Swing Beds
+    , '22'  -- Skilled Nursing Facility (SNF) Inpatient (Part B)
+    , '25'  -- SNF Intermediate Care - Level I
+    , '26'  -- SNF Intermediate Care - Level II
+    , '27'  -- SNF Subacute Inpatient
+    , '28'  -- SNF Swing Beds
+    , '31'  -- Home Health Inpatient (Part A)
+    , '41'  -- Religious Nonmedical Hospital Inpatient (Part A)
+    , '42'  -- Religious Nonmedical Hospital Inpatient (Part B)
+    , '45'  -- Religious Nonmedical Hospital Intermediate Care - Level I
+    , '46'  -- Religious Nonmedical Hospital Intermediate Care - Level II
+    , '47'  -- Religious Nonmedical Hospital Subacute Inpatient
+    , '48'  -- Religious Nonmedical Hospital Swing Beds
+    , '61'  -- Intermediate Care Inpatient (Part A)
+    , '62'  -- Intermediate Care Inpatient (Part B)
+    , '65'  -- Intermediate Care - Level I
+    , '66'  -- Intermediate Care - Level II
+    , '67'  -- Intermediate Care Subacute Inpatient
+    , '68'  -- Intermediate Care Swing Beds    
+            )
+        )
+),
+
 , claim_line_totals as (
     select
         claim_id
         , claim_line_number
-        , sum(paid_amount) as sum_paid_amount
-        , sum(allowed_amount) as sum_allowed_amount
-        , sum(coinsurance_amount) as sum_coinsurance_amount
-        , sum(copayment_amount) as sum_copayment_amount
-        , sum(deductible_amount) as sum_deductible_amount
-        , sum(service_unit_quantity) as sum_service_unit_quantity
-        , sum(charge_amount) as sum_charge_amount
-    from mapped_data
+        , sum(case when ip.claim_id is not null then 0 else main.paid_amount end) as sum_paid_amount
+        , sum(case when ip.claim_id is not null then 0 else main.allowed_amount end) as sum_allowed_amount
+        , sum(case when ip.claim_id is not null then 0 else main.coinsurance_amount end) as sum_coinsurance_amount
+        , sum(case when ip.claim_id is not null then 0 else main.copayment_amount end) as sum_copayment_amount
+        , sum(case when ip.claim_id is not null then 0 else main.deductible_amount end) as sum_deductible_amount
+        , sum(case when ip.claim_id is not null then 0 else main.service_unit_quantity end) as sum_service_unit_quantity
+        , sum(case when ip.claim_id is not null then 0 else main.charge_amount end) as sum_charge_amount
+    from mapped_data main
+    left join denied_inpatient_facility_claims as ip
+        on main.claim_id = ip.claim_id
+        and main.claim_line_number = ip.claim_line_number    
     group by claim_id, claim_line_number
 )
 
@@ -314,16 +363,20 @@ from {{ ref('stg_medical_claim') }}
   group by claim_id
 )
 
-, rejections as (
-    select
-        claim_id
+, rejections AS (
+    select distinct
+        main.claim_id
         /*
         Records with a "D" in claim line status code are voided and reprocessed
         under a new claim ID. Here we identify records that should be voided.
         */
-        , max(claim_line_status_code = 'D') as has_denied_status
-    from mapped_data
-    group by claim_id
+    from updated_claim_id as main
+    left join denied_inpatient_facility_claims as ip
+        on main.claim_id = ip.claim_id
+        and main.claim_line_number = ip.claim_line_number
+    where clm_ln_status_cd = 'D'
+        -- Exclude inpatient facility claims since they aren't actually denied (see note above the denied_inpatient_facility_claims CTE)
+        and ip.claim_id is null
 )
 
 , claims_to_exclude as (
@@ -489,19 +542,21 @@ select
     , cast(null as datetime) as ingest_datetime
     , cast(received_dt as date) as received_date
 from mapped_data as md
+
 inner join claim_line_totals as clt
-on md.claim_id = clt.claim_id
-and md.claim_line_number = clt.claim_line_number
+    on md.claim_id = clt.claim_id
+    and md.claim_line_number = clt.claim_line_number
 left outer join claim_types as ct
-on md.claim_id = ct.claim_id
+    on md.claim_id = ct.claim_id
 left outer join rejections as r
-on md.claim_id = r.claim_id
+    on md.claim_id = r.claim_id
 left outer join claims_to_exclude as cte
-on md.claim_id = cte.claim_id
-where not r.has_denied_status
-and cte.claim_id is null
--- Keep originals post-ADR
-and clm_ln_type_cd = 'O'
+    on md.claim_id = cte.claim_id
+
+where r.claim_id is null
+    and cte.claim_id is null
+    -- Keep originals post-ADR
+    and clm_ln_type_cd = 'O'
 )
 
 select * from final
