@@ -289,7 +289,7 @@ If the purpose of the reporting is to review all records associated with a facil
     from updated_claim_id
     -- Definition taken from the service_category__stg_inpatient_institutional model in Tuva
     where clm_ln_status_cd = 'D'
-        and (substring(cast(hcfa_bill_type_cd as VARCHAR), 1, 2) in (
+        and (substring(cast(hcfa_bill_type_cd as {{ dbt.type_string() }}), 1, 2) in (
       '11'  -- Hospital Inpatient (Part A)
     , '12'  -- Hospital Inpatient (Part B)
     , '21'  -- Skilled Nursing Facility (SNF) Inpatient (Part A)
