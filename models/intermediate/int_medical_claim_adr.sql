@@ -286,7 +286,7 @@ If the purpose of the reporting is to review all records associated with a facil
     select distinct
         claim_id,
         claim_line_number
-    from updated_claim_id
+    from mapped_data
     -- Definition taken from the service_category__stg_inpatient_institutional model in Tuva
     where clm_ln_status_cd = 'D'
         and (substring(cast(hcfa_bill_type_cd as {{ dbt.type_string() }}), 1, 2) in (
@@ -370,7 +370,7 @@ If the purpose of the reporting is to review all records associated with a facil
         Records with a "D" in claim line status code are voided and reprocessed
         under a new claim ID. Here we identify records that should be voided.
         */
-    from updated_claim_id as main
+    from mapped_data as main
     left join denied_inpatient_facility_claims as ip
         on main.claim_id = ip.claim_id
         and main.claim_line_number = ip.claim_line_number
