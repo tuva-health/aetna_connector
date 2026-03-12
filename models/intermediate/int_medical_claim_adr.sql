@@ -282,7 +282,7 @@ From the Aetna documentation:
 The remaining expense lines (usually ancillary records) will show a Status of Claim value of 'D' but they were not technically denied. The 'D' in such cases is only used to denote that none of the paid dollars for the claim will be found on the expense-lines carrying the 'D" value for Status of Claim.
 If the purpose of the reporting is to review all records associated with a facility claim, then records with a Status of Claim value of 'D' should not be excluded.
 */
-denied_inpatient_facility_claims as (
+, denied_inpatient_facility_claims as (
     select distinct
         claim_id,
         claim_line_number
@@ -318,7 +318,7 @@ denied_inpatient_facility_claims as (
     , '68'  -- Intermediate Care Swing Beds    
             )
         )
-),
+)
 
 , claim_line_totals as (
     select
