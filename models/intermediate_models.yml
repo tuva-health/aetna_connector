@@ -31,3 +31,5 @@ models:
           tags: ['tuva_dqi_sev_1', 'dqi']
 
   - name: int_pharmacy_claim
+    config:
+      tags: ['aetna']
