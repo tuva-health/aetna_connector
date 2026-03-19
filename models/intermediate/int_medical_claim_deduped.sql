@@ -34,7 +34,7 @@ select
     , drg_code_type
     , drg_code
     , revenue_center_code
-    , service_unit_quantity
+    , service_unit_quantity / 100 as service_unit_quantity
     , hcpcs_code
     , hcpcs_modifier_1
     , hcpcs_modifier_2
@@ -47,13 +47,13 @@ select
     , billing_tin
     , facility_npi
     , paid_date
-    , paid_amount
-    , allowed_amount
-    , charge_amount
-    , coinsurance_amount
-    , copayment_amount
-    , deductible_amount
-    , total_cost_amount
+    , paid_amount / 100 as paid_amount
+    , allowed_amount / 100 as allowed_amount
+    , charge_amount / 100 as charge_amount
+    , coinsurance_amount / 100 as coinsurance_amount
+    , copayment_amount / 100 as copayment_amount
+    , deductible_amount / 100 as deductible_amount
+    , total_cost_amount / 100 as total_cost_amount
     , diagnosis_code_type
     , diagnosis_code_1
     , diagnosis_code_2
