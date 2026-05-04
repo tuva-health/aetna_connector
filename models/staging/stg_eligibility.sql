@@ -37,11 +37,10 @@ select distinct
     -- , subscriber_ssn_nbr
     , filename as file_id
     , filename as file_name
-    , date_id as file_date
-    , _run_time as ingest_datetime
+    , null as file_date
+    , current_timestamp as ingest_datetime
     -- extension columns
-    , market as x_market
-    , 'aetna' || '|' || market || '|' || lob as data_source
+    , 'aetna' as data_source
     , 'aetna' as payer
     , case
         when filename like '%IPAOFNY_ME_AETA%' then 'MA'

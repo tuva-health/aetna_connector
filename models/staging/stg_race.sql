@@ -1,7 +1,6 @@
 with race as (
 select distinct 
       person_id
-    , lob
     , race_ethnicity
     , case 
         when race_ethnicity = 'White' then 'white'
@@ -18,7 +17,6 @@ from {{ ref('stg_member') }}
 
 select
     person_id
-    , lob
     , race
     , case 
         when race = 'unknown' then 'unknown'

@@ -61,7 +61,7 @@ select
     , cast(adjn_dt as date) as adjn_dt
     , to_date(srv_start_dt, 'yyyy-MM-dd') as srv_start_dt
     , cast(srv_stop_dt as date) as srv_stop_dt
-    , cast(date_id as date) as date_processed
+    , cast(null as date) as date_processed
     , cast(filler2 as {{ dbt.type_string() }}) as filler_2
     , cast(filler3 as {{ dbt.type_string() }}) as filler_3
     , cast(filler4 as {{ dbt.type_string() }}) as filler_4
@@ -177,8 +177,8 @@ select
     , cast(icd10_indicator as {{ dbt.type_string() }}) as icd_10_ind
     -- , cast(xchng_id as {{ dbt.type_string() }}) as xchng_id
     -- , cast(filler_15 as {{ dbt.type_string() }}) as filler_15
-    , cast(date_id as date) as file_date
+    , cast(null as date) as file_date
     , filename as file_name
-    , 'aetna' || '|' || market || '|' || lob as data_source
-    , _run_time as ingest_datetime
+    , 'aetna' as data_source
+    , current_timestamp as ingest_datetime
 from {{ source('aetna', 'medical_claims') }}

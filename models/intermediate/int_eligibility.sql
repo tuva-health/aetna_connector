@@ -75,14 +75,6 @@ with source_data as (
     -- , pcp_npi_no
     -- , specialty_ctg_cd
     -- , xchng_id
-    -- It was decided to map to fully dual eligible since dual_elig doesn't cleanly map to dual status code and that this was preferred rather than assuming everyone was non-dual
-    , x_market
-    , case when lkup.code_desc like '%HMO%' then 'HMO'
-           when lkup.code_desc like '%PPO%' then 'PPO'
-           when lkup.code_desc like '%POS%' then 'POS'
-           when lkup.code_desc like '%EPO%' then 'EPO'
-           when lkup.code_desc like '%HDHP%' then 'HDHP'
-      end as x_program_type
     , data_source
     , payer
     , elig.attr_npi_nbr
@@ -127,20 +119,16 @@ with source_data as (
         , sd.file_date
         , sd.ingest_datetime
         , data_source    
-        , sd.x_market
-        , sd.x_program_type
         , sd.attr_npi_nbr
         , sd.attr_tax_id_nbr
         , rank() over (partition by sd.payer_type order by sd.file_date desc, sd.ingest_datetime desc) as record_rank
     from source_data as sd
     left join {{ ref('stg_race')}} as stg_race
         on sd.member_id = stg_race.person_id
-        and sd.payer_type = stg_race.lob
     left join {{ ref('stg_member') }} as mem
         on mem.person_id = sd.member_id
         and mem.member_effective_date >= sd.enrollment_start_date
         and mem.member_term_date <= sd.enrollment_end_date
-        and mem.lob = sd.payer_type
 )
 
 , final as (
@@ -180,8 +168,6 @@ with source_data as (
         , cast(file_name as {{ dbt.type_string() }}) as file_name
         , file_date
         , ingest_datetime
-        , x_market
-        , x_program_type
         , case when len(attr_npi_nbr) < 10 then null else attr_npi_nbr end as attr_npi_nbr
         , case when len(attr_tax_id_nbr) < 9 then null else attr_tax_id_nbr end as attr_tax_id_nbr
     from mapped_data

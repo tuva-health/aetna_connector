@@ -19,10 +19,11 @@ select
     , cast(srv_copay_amt as float) as copayment_amount
     , cast(app_to_per_ded_amt as float) as deductible_amount
     , null as in_network_flag
-    , 'aetna' || '|' || market || '|' || lob as data_source
+    , 'aetna' as data_source
     , filename as file_name
-    , date_id as file_date
-    , _run_time as ingest_datetime
+    , null as file_date
+    , current_timestamp as ingest_datetime
+
 from {{ source('aetna', 'pharmacy_claims') }}
 -- Only paid claims
 where clm_status = 'P'
