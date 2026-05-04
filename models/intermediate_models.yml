@@ -3,33 +3,44 @@ version: 2
 models:
   - name: int_eligibility
     config:
-      tags: ['aetna']  
+      tags: ["input_layer", "aetna"]
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - person_id
-            - enrollment_start_date
-            - enrollment_end_date
-            - "{{ '\"plan\"' if (target.type == 'fabric') else 'plan' }}"
-            - payer
-            - data_source
+          arguments:
+            combination_of_columns:
+              - person_id
+              - enrollment_start_date
+              - enrollment_end_date
+              - "{{ '\"plan\"' if (target.type == 'fabric') else 'plan' }}"
+              - payer
+              - data_source
           tags: ['tuva_dqi_sev_1', 'dqi']
+    columns:
+      - name: payer_type
+        description: If null, this indicates that likely there is an unsupported file type that needs to be mapped since this depends on file name.
+        tests:
+          - not_null
 
   - name: int_medical_claim_adr
     config:
-      tags: ['aetna']  
+      tags: ["input_layer", "aetna"]  
 
   - name: int_medical_claim_deduped
     config:
-      tags: ['aetna']  
+      tags: ["input_layer", "aetna"]
     tests: 
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - claim_id
-            - claim_line_number
-            - data_source
+          arguments:
+            combination_of_columns:
+              - claim_id
+              - claim_line_number
+              - data_source
           tags: ['tuva_dqi_sev_1', 'dqi']
 
   - name: int_pharmacy_claim
     config:
-      tags: ['aetna']
+      tags: ["input_layer", "aetna"]
+
+  - name: int_provider_attribution
+    config:
+      tags: ["input_layer", "aetna"]
