@@ -3,36 +3,48 @@ version: 2
 models:
   - name: eligibility
     config:
-      tags: ['aetna']  
+      tags: ["input_layer", "aetna"]
+      materialized: table    
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - person_id
-            - enrollment_start_date
-            - enrollment_end_date
-            - "{{ '\"plan\"' if (target.type == 'fabric') else 'plan' }}"
-            - payer
-            - data_source
+          arguments:
+            combination_of_columns:
+              - person_id
+              - enrollment_start_date
+              - enrollment_end_date
+              - "{{ '\"plan\"' if (target.type == 'fabric') else 'plan' }}"
+              - payer
+              - data_source
           tags: ['tuva_dqi_sev_1', 'dqi']
 
   - name: medical_claim
     config:
-      tags: ['aetna']  
-    tests: 
+      tags: ["input_layer", "aetna"]
+      materialized: table    
+    tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - claim_id
-            - claim_line_number
-            - data_source
+          arguments:
+            combination_of_columns:
+              - claim_id
+              - claim_line_number
+              - data_source
           tags: ['tuva_dqi_sev_1', 'dqi']
 
   - name: pharmacy_claim
     config:
-      tags: ['aetna']
+      tags: ["input_layer", "aetna"]
+      materialized: table
     tests: 
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - claim_id
-            - claim_line_number
-            - data_source
-          tags: ['tuva_dqi_sev_1', 'dqi'] 
+          arguments:
+            combination_of_columns:
+              - claim_id
+              - claim_line_number
+              - data_source
+          tags: ['tuva_dqi_sev_1', 'dqi']
+
+  - name: provider_attribution
+    config:
+      tags: ["input_layer", "aetna"]
+      materialized: table    
+

@@ -1,6 +1,8 @@
 with source_data as (
 select
-      ps_unique_id
+      left(src_clm_id, 9) as claim_id
+    , src_claim_line_id as claim_line_number
+    , ps_unique_id
     , customer_nbr
     , group_nbr
     -- , filler_1
@@ -10,7 +12,7 @@ select
     , clm_ln_type_cd
     , non_prfrrd_srv_cd
     , plsp_prod_cd
-    , product_ln_cd
+    , lkup.code_desc as plan
     , classification_cd
     , bnft_pkg_id
     , plan_id
@@ -74,13 +76,13 @@ select
     -- , filler_6
     -- , filler_7
     , type_srv_cd
-    , benefit_cd
+    -- , benefit_cd
     , tooth_1_nbr
     , plc_srv_cd
     , dschrg_status_cd
     , revenue_cd
     , hcfa_bill_type_cd
-    , unit_cnt
+    , unit_cnt as service_unit_quantity
     , src_unit_cnt
     , src_billed_amt
     , billed_amt
@@ -99,7 +101,12 @@ select
     , coinsurance_amt
     , src_coins_amt
     , bnft_payable_amt
-    , paid_amt
+    , paid_amt as paid_amount
+    , allowed_amt as allowed_amount
+    , srv_copay_amt as copayment_amount
+    , deductible_amt as deductible_amount
+    , coinsurance_amt as coinsurance_amount
+    , billed_amt as charge_amount
     , cob_paid_amt
     , ahf_bfd_amt
     , ahf_paid_amt
@@ -175,6 +182,11 @@ select
     -- , filler_13
     -- , filler_14
     , icd_10_ind
+    , file_date
+    , file_name
+    , ingest_datetime
+    , data_source
+    , payer
     -- , xchng_id
     -- , filler_15
     /*
@@ -186,9 +198,13 @@ select
         partition by
             src_clm_id
             , claim_line_id
-        order by coalesce(file_date, received_dt) desc
+            , clm_ln_status_cd
+        order by file_date desc, received_dt desc
     ) as row_num
-from {{ ref('stg_medical_claim') }}
+from {{ ref('stg_medical_claim') }} as med
+left join {{ ref('aetna_codes')}} as lkup
+    on med.product_ln_cd = lkup.code_value
+    and code = 'PRODUCT_LN_CD'
 )
 
 , source_data_deduped as (
@@ -199,23 +215,24 @@ from {{ ref('stg_medical_claim') }}
 
 , mapped_data as (
     select
-        left(src_clm_id, 9) as claim_id
-        , src_claim_line_id as claim_line_number
+          claim_id
+        , claim_line_number
+        , src_clm_id
         , clm_ln_status_cd as claim_line_status_code
         , member_id
-        , member_id as person_id
+        , data_source || '.' || member_id as person_id
         , srv_start_dt as claim_line_start_date
         , srv_stop_dt as claim_line_end_date
         , srv_start_dt as claim_start_date
         , srv_stop_dt as claim_end_date
         , date_processed as paid_date
-        , src_admit_dt as admission_date
-        , src_discharge_dt as discharge_date
+        , nullif(src_admit_dt, '1800-01-01') as admission_date
+        , nullif(src_discharge_dt, '1800-01-01') as discharge_date
         , hcfa_admit_src_cd as admit_source_code
         , nullif(hcfa_admit_type_cd,'9') as admit_type_code
         , lpad(dschrg_status_cd, 2, '0') as discharge_disposition_code
         , lpad(nullif(revenue_cd,'000'), 4, '0') as revenue_center_code
-        , unit_cnt as service_unit_quantity
+        , service_unit_quantity
         -- U is unknown
         , nullif(hcfa_bill_type_cd, 'U') as bill_type_code
         , lpad(hcfa_plc_srv_cd, 2, '0') as place_of_service_code
@@ -227,12 +244,12 @@ from {{ ref('stg_medical_claim') }}
         , prcdr_modifier_cd_3 as hcpcs_modifier_3
         , lpad(case when srv_prvdr_npi != '0000000000' then srv_prvdr_npi end, 10, '0') as rendering_npi
         , srv_prvdr_tax_id_nbr as rendering_tin
-        , paid_amt as paid_amount
-        , allowed_amt as allowed_amount
-        , srv_copay_amt as copayment_amount
-        , deductible_amt as deductible_amount
-        , coinsurance_amt as coinsurance_amount
-        , billed_amt as charge_amount
+        , paid_amount
+        , allowed_amount
+        , copayment_amount
+        , deductible_amount
+        , coinsurance_amount
+        , charge_amount
         , case when icd_10_ind = 'Y' then 'icd-10-cm'
                when icd_10_ind = 'N' then 'icd-9-cm'
             end as diagnosis_code_type
@@ -265,76 +282,30 @@ from {{ ref('stg_medical_claim') }}
         , icd9_prcdr_cd_4 as procedure_code_4
         , icd9_prcdr_cd_5 as procedure_code_5
         , icd9_prcdr_cd_6 as procedure_code_6
-        , 'Aetna' as plan
-        , 'Aetna' as data_source
-        , 'Aetna' as payer
+        , plan
+        , data_source
+        , payer
         , received_dt
         , clm_ln_type_cd
         , prcdr_type_cd
-    from source_data
-)
-
-
-/*
-From the Aetna documentation:
-
-* Note: For inpatient facility claims processed on ACAS (Source System Platform = '27'), the financials for multiple expense lines may be "rolled up" to the first room and board and/or ancillary expense line (i.e., all of the covered and paid dollars for that claim will be shown on the first expense line). 
-The remaining expense lines (usually ancillary records) will show a Status of Claim value of 'D' but they were not technically denied. The 'D' in such cases is only used to denote that none of the paid dollars for the claim will be found on the expense-lines carrying the 'D" value for Status of Claim.
-If the purpose of the reporting is to review all records associated with a facility claim, then records with a Status of Claim value of 'D' should not be excluded.
-*/
-, denied_inpatient_facility_claims as (
-    select distinct
-        claim_id,
-        claim_line_number
-    from mapped_data
-    -- Definition taken from the service_category__stg_inpatient_institutional model in Tuva
-    where claim_line_status_code = 'D'
-        and (substring(cast(bill_type_code as {{ dbt.type_string() }}), 1, 2) in (
-      '11'  -- Hospital Inpatient (Part A)
-    , '12'  -- Hospital Inpatient (Part B)
-    , '21'  -- Skilled Nursing Facility (SNF) Inpatient (Part A)
-    , '82'  -- Hospital-based Hospice (Inpatient)
-    , '15'  -- Hospital Intermediate Care - Level I
-    , '16'  -- Hospital Intermediate Care - Level II
-    , '17'  -- Hospital Subacute Inpatient
-    , '18'  -- Hospital Swing Beds
-    , '22'  -- Skilled Nursing Facility (SNF) Inpatient (Part B)
-    , '25'  -- SNF Intermediate Care - Level I
-    , '26'  -- SNF Intermediate Care - Level II
-    , '27'  -- SNF Subacute Inpatient
-    , '28'  -- SNF Swing Beds
-    , '31'  -- Home Health Inpatient (Part A)
-    , '41'  -- Religious Nonmedical Hospital Inpatient (Part A)
-    , '42'  -- Religious Nonmedical Hospital Inpatient (Part B)
-    , '45'  -- Religious Nonmedical Hospital Intermediate Care - Level I
-    , '46'  -- Religious Nonmedical Hospital Intermediate Care - Level II
-    , '47'  -- Religious Nonmedical Hospital Subacute Inpatient
-    , '48'  -- Religious Nonmedical Hospital Swing Beds
-    , '61'  -- Intermediate Care Inpatient (Part A)
-    , '62'  -- Intermediate Care Inpatient (Part B)
-    , '65'  -- Intermediate Care - Level I
-    , '66'  -- Intermediate Care - Level II
-    , '67'  -- Intermediate Care Subacute Inpatient
-    , '68'  -- Intermediate Care Swing Beds    
-            )
-        )
+        , file_name
+        , file_date
+        , ingest_datetime
+    from source_data_deduped
 )
 
 , claim_line_totals as (
     select
         main.claim_id
         , main.claim_line_number
-        , sum(case when ip.claim_id is not null then 0 else main.paid_amount end) as sum_paid_amount
-        , sum(case when ip.claim_id is not null then 0 else main.allowed_amount end) as sum_allowed_amount
-        , sum(case when ip.claim_id is not null then 0 else main.coinsurance_amount end) as sum_coinsurance_amount
-        , sum(case when ip.claim_id is not null then 0 else main.copayment_amount end) as sum_copayment_amount
-        , sum(case when ip.claim_id is not null then 0 else main.deductible_amount end) as sum_deductible_amount
-        , sum(case when ip.claim_id is not null then 0 else main.service_unit_quantity end) as sum_service_unit_quantity
-        , sum(case when ip.claim_id is not null then 0 else main.charge_amount end) as sum_charge_amount
-    from mapped_data main
-    left join denied_inpatient_facility_claims as ip
-        on main.claim_id = ip.claim_id
-        and main.claim_line_number = ip.claim_line_number    
+        , sum(main.paid_amount) as sum_paid_amount
+        , sum(main.allowed_amount) as sum_allowed_amount
+        , sum(main.coinsurance_amount) as sum_coinsurance_amount
+        , sum(main.copayment_amount) as sum_copayment_amount
+        , sum(main.deductible_amount) as sum_deductible_amount
+        , sum(main.service_unit_quantity) as sum_service_unit_quantity
+        , sum(main.charge_amount) as sum_charge_amount
+    from source_data_deduped main   
     group by main.claim_id, main.claim_line_number
 )
 
@@ -361,22 +332,6 @@ If the purpose of the reporting is to review all records associated with a facil
     , max(prcdr_type_cd = 'F') as is_dental
   from mapped_data
   group by claim_id
-)
-
-, rejections AS (
-    select distinct
-        main.claim_id
-        /*
-        Records with a "D" in claim line status code are voided and reprocessed
-        under a new claim ID. Here we identify records that should be voided.
-        */
-    from mapped_data as main
-    left join denied_inpatient_facility_claims as ip
-        on main.claim_id = ip.claim_id
-        and main.claim_line_number = ip.claim_line_number
-    where claim_line_status_code = 'D'
-        -- Exclude inpatient facility claims since they aren't actually denied (see note above the denied_inpatient_facility_claims CTE)
-        and ip.claim_id is null
 )
 
 , claims_to_exclude as (
@@ -537,9 +492,9 @@ select
     , cast(null as date) as procedure_date_25
     , cast(null as integer) as in_network_flag
     , cast(data_source as {{ dbt.type_string() }}) as data_source
-    , cast(null as {{ dbt.type_string() }}) as file_name
-    , cast(null as {{ dbt.type_string() }}) as file_date
-    , null as ingest_datetime
+    , cast(file_name as {{ dbt.type_string() }}) as file_name
+    , cast(file_name as {{ dbt.type_string() }}) as file_date
+    , CURRENT_TIMESTAMP as ingest_datetime
     , cast(received_dt as date) as received_date
 from mapped_data as md
 
@@ -548,13 +503,11 @@ inner join claim_line_totals as clt
     and md.claim_line_number = clt.claim_line_number
 left outer join claim_types as ct
     on md.claim_id = ct.claim_id
-left outer join rejections as r
-    on md.claim_id = r.claim_id
 left outer join claims_to_exclude as cte
     on md.claim_id = cte.claim_id
 
-where r.claim_id is null
-    and cte.claim_id is null
+where 
+    cte.claim_id is null
     -- Keep originals post-ADR
     and clm_ln_type_cd = 'O'
 )

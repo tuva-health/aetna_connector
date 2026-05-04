@@ -7,7 +7,7 @@ with base as (
         */
         , row_number() over (
             partition by claim_id, claim_line_number
-            order by received_date desc
+            order by received_date desc, claim_start_date desc
         ) as row_num
     from {{ ref('int_medical_claim_adr') }}
 )
@@ -47,6 +47,7 @@ select
     , billing_tin
     , facility_npi
     , paid_date
+    -- Aetna stores these amounts with decimal implied, so we divide by 100 to get the cents and correct value.
     , paid_amount / 100 as paid_amount
     , allowed_amount / 100 as allowed_amount
     , charge_amount / 100 as charge_amount

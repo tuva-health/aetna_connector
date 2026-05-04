@@ -3,12 +3,34 @@ version: 2
 models:
   - name: stg_eligibility
     config:
-      tags: ['aetna']  
+      tags: ["input_layer", "aetna"]
 
   - name: stg_medical_claim
     config:
-      tags: ['aetna']  
-      
+      tags: ["input_layer", "aetna"]
+
   - name: stg_pharmacy_claim
     config:
-      tags: ['aetna']  
+      tags: ["input_layer", "aetna"]
+
+  - name: stg_provider_attribution
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - person_id
+              - year_month
+              - payer
+              - plan
+              - data_source  
+    config:
+      tags: ["input_layer", "aetna"]
+
+  - name: stg_member
+    config:
+      tags: ["input_layer", "aetna"]
+
+  - name: stg_race
+    config:
+      tags: ["input_layer", "aetna"]
+
