@@ -4,6 +4,8 @@ sources:
  - name: aetna
    schema: raw_data
    tables:
-     - name: aetna_eligibility_raw
-     - name: aetna_medical_claims_raw
-     - name: aetna_pharmacy_claims_raw
+     - name: enrollment
+     - name: member
+     - name: medical_claims
+     - name: pharmacy_claims
+

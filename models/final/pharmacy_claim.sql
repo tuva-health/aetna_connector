@@ -13,15 +13,16 @@ select
     , cast(days_supply as integer) as days_supply
     , cast(refills as integer) as refills
     , cast(paid_date as date) as paid_date
-    , {{ cast_numeric('paid_amount') }} as paid_amount
-    , {{ cast_numeric('allowed_amount') }} as allowed_amount
-    , {{ cast_numeric('charge_amount') }} as charge_amount
-    , {{ cast_numeric('coinsurance_amount') }} as coinsurance_amount
-    , {{ cast_numeric('copayment_amount') }} as copayment_amount
-    , {{ cast_numeric('deductible_amount') }} as deductible_amount
+    , round(paid_amount, 2) as paid_amount
+    , round(allowed_amount, 2) as allowed_amount
+    , round(charge_amount, 2) as charge_amount
+    , round(coinsurance_amount, 2) as coinsurance_amount
+    , round(copayment_amount, 2) as copayment_amount
+    , round(deductible_amount, 2) as deductible_amount
     , cast(in_network_flag as integer) as in_network_flag
     , cast(data_source as {{ dbt.type_string() }}) as data_source
     , cast(file_name as {{ dbt.type_string() }}) as file_name
-    , cast(NULL as date) as file_date
-    , cast(ingest_datetime as {{ dbt.type_timestamp() }}) as ingest_datetime
-from deduped_claims
+    , file_date
+    , ingest_datetime
+from {{ ref('int_pharmacy_claim') }}
+

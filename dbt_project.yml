@@ -2,7 +2,7 @@ name: aetna_connector
 version: '1.0.0'
 
 # This setting configures which "profile" dbt uses for this project.
-profile: default
+profile: dbt_aetna
 
 vars:
   exclude_packages: ["all"]
