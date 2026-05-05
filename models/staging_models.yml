@@ -34,3 +34,10 @@ models:
     config:
       tags: ["input_layer", "aetna"]
 
+  - name: stg_attr_npi
+    config:
+      tags: ["input_layer", "aetna"]
+
+  - name: stg_attr_tin
+    config:
+      tags: ["input_layer", "aetna"]

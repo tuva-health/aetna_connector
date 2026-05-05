@@ -1,22 +1,33 @@
 select 
-    member_id
-    , person_id
-    , person_id as patient_id
-    , payer
-    , data_source
-    , payer_type
-    , attr_npi_nbr AS payer_attributed_provider -- Storing NPI here
-    , null as payer_attributed_provider_practice
-    , null as payer_attributed_provider_organization
-    , payer_type  as payer_attributed_provider_lob
-    , attr_tax_id_nbr as custom_attributed_provider -- Storing TIN here
-    , null as custom_attributed_provider_practice
-    , null as custom_attributed_provider_organization
-    , payer_type as custom_attributed_provider_lob
-    , file_name
-    , ingest_datetime
-    , file_date
-    , enrollment_start_date as year_month 
-    , plan
-from {{ ref('int_eligibility') }}
+    dw_member_id as member_id
+    , dw_member_id as person_id
+    , trim(race_ethnicity) as race_ethnicity
+    , date_id
+    , dual_elig
+    , lob
+    , market
+    , attr_npi
+    , attr_name
+    , attr_tax_id
+    , attr_tax_id_name
+    , filename
+    , efftv_dt
+    , termn_dt
+    , _run_time
+    , case
+        when length(efftv_dt) > 12
+            then to_date(efftv_dt, 'yyyy-MM-dd HH:mm:ss')
+        when efftv_dt like '____-__-__'
+            then to_date(efftv_dt, 'yyyy-MM-dd')
+        else to_date(efftv_dt, 'MM/dd/yyyy')
+    end as member_effective_date
+    , case
+        when length(termn_dt) > 12
+            then to_date(termn_dt, 'yyyy-MM-dd HH:mm:ss')
+        when termn_dt like '____-__-__'
+            then to_date(termn_dt, 'yyyy-MM-dd')
+        else to_date(termn_dt, 'MM/dd/yyyy')
+    end as member_term_date
+from {{ source('aetna', 'member') }}
+qualify row_number() over (partition by dw_member_id, lob order by date_id desc, _run_time desc) = 1
 
